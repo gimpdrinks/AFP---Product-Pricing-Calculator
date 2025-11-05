@@ -1,0 +1,5 @@
+{
+  "name": "Ai For Pinoys - Product Pricing Calculator",
+  "description": "A tool for small business owners to calculate product pricing. Users can manage a list of materials, calculate a product's base cost, and determine a final sales price based on either a target profit margin or a target price.",
+  "requestFramePermissions": []
+}
