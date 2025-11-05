@@ -80,12 +80,14 @@ export interface CalculatedPricing {
   profit: number;           // Profit on the discounted price
 }
 
+// FIX: Added missing types for legacy components to resolve compilation errors.
+// NOTE: The following types are for legacy components (CalculatorForm, ResultsDisplay)
+// that are not currently used in the application but are kept for reference.
 
-// NOTE: The types below are for components from a previous version of the app
-// (CalculatorForm, ResultsDisplay, PricingAdvisor) that are not currently
-// integrated into the main application flow in `App.tsx`.
-
-// Represents the inputs for the older, simpler calculator form.
+/**
+ * Represents the inputs for the older, simpler calculator form.
+ * @deprecated
+ */
 export interface CalculatorInputs {
   materialCost: number;
   laborCost: number;
@@ -96,7 +98,10 @@ export interface CalculatorInputs {
   wholesaleDiscount: number;
 }
 
-// Represents the calculated results for the older, simpler calculator form.
+/**
+ * Represents the calculated results from the older, simpler calculator.
+ * @deprecated
+ */
 export interface CalculatedResults {
   retailPrice: number;
   wholesalePrice: number;

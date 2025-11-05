@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { Materials } from './components/Materials';
 import { ProductPricing } from './components/ProductPricing';
+import { PricingAdvisor } from './components/PricingAdvisor'; // <-- ADD THIS
 import type { Material, ProductInputs, CalculatedPricing, ProductMaterialRow, LaborCostRow, OtherFeeRow } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -230,11 +231,15 @@ const App: React.FC = () => {
               onDelete={handleDeleteMaterial}
             />
           </div>
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-8">
             <ProductPricing
               materials={materials}
               product={productInputs}
               onProductChange={handleProductInputChange}
+              results={calculatedPricing}
+            />
+            <PricingAdvisor
+              inputs={productInputs}
               results={calculatedPricing}
             />
           </div>
