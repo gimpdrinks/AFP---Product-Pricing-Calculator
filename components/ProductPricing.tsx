@@ -1,28 +1,23 @@
-
-
 /**
  * @file ProductPricing.tsx
  * This component renders the entire product pricing workflow, now based on a
  * spreadsheet-style interface with multiple cost calculator tables.
  */
-import React from 'react';
-import type { Material, ProductInputs, CalculatedPricing, CalculationMode, ProductMaterialRow, LaborCostRow, OtherFeeRow } from '../types';
+import React, { useCallback } from 'react';
+import type { ProductMaterialRow, LaborCostRow, OtherFeeRow, ProductInputs, CalculationMode } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { v4 as uuidv4 } from 'uuid';
-import { Tooltip } from './Tooltip'; // Import the new Tooltip component
+import { Tooltip } from './Tooltip';
+import { useAppContext } from '../context/AppContext';
+// Import the new components
+import { MaterialCostTable } from './MaterialCostTable';
+import { PackagingCostTable } from './PackagingCostTable';
+import { LaborCostTable } from './LaborCostTable';
+import { OtherFeeTable } from './OtherFeeTable';
 
-
-// Props for the main ProductPricing component.
-interface ProductPricingProps {
-  materials: Material[];
-  product: ProductInputs;
-  onProductChange: (name: keyof ProductInputs, value: any) => void;
-  results: CalculatedPricing;
-}
 
 // Reusable class strings for consistent input styling.
 const inputBaseClasses = "mt-1 w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-3 bg-white text-slate-900 placeholder:text-slate-400";
-const tableInputClasses = "w-full p-2 bg-transparent text-slate-900 border-0 focus:ring-1 focus:ring-indigo-500 focus:outline-none";
 
 // Reusable component for the step headers with color-coded numbers.
 const StepHeader = ({ number, title }: { number: number; title: string }) => {
@@ -48,23 +43,35 @@ const StepHeader = ({ number, title }: { number: number; title: string }) => {
 };
 
 type CostTab = 'materials' | 'packaging' | 'labor' | 'other';
+type RowType = 'materialCostRows' | 'packagingCostRows' | 'laborCostRows' | 'otherFeeRows';
 
-export const ProductPricing: React.FC<ProductPricingProps> = ({ materials, product, onProductChange, results }) => {
+
+export const ProductPricing: React.FC = () => {
+  const { 
+    productInputs: product, 
+    calculatedPricing: results,
+    onProductTextChange,
+    onProductNumberChange,
+    onProductModeChange,
+    onProductRowsChange,
+  } = useAppContext();
   const [activeTab, setActiveTab] = React.useState<CostTab>('materials');
 
   // Generic handler for top-level numeric input changes.
   const handleTopLevelInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onProductChange(e.target.name as keyof ProductInputs, Math.max(0, parseFloat(e.target.value) || 0));
+    const name = e.target.name as 'hourlyLaborRate' | 'targetMargin' | 'targetPrice' | 'discount';
+    const value = Math.max(0, parseFloat(e.target.value) || 0);
+    onProductNumberChange(name, value);
   };
   
   // Generic handler for top-level text input changes (e.g., product name).
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onProductChange(e.target.name as keyof ProductInputs, e.target.value);
+    onProductTextChange('productName', e.target.value);
   };
 
   // HANDLERS for Table Rows
   
-  const addRow = (rowType: keyof ProductInputs) => {
+  const addRow = useCallback((rowType: RowType) => {
     let newRow: ProductMaterialRow | LaborCostRow | OtherFeeRow;
     switch (rowType) {
         case 'materialCostRows':
@@ -80,25 +87,20 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ materials, produ
         default: return;
     }
     const currentRows = product[rowType] as any[];
-    onProductChange(rowType, [...currentRows, newRow]);
-  };
+    onProductRowsChange(rowType, [...currentRows, newRow]);
+  }, [product, onProductRowsChange]);
 
-  const updateRow = (rowType: keyof ProductInputs, rowIndex: number, updatedValue: any) => {
+  const updateRow = useCallback((rowType: RowType, rowIndex: number, updatedValue: any) => {
     const currentRows = product[rowType] as any[];
     const newRows = [...currentRows];
     newRows[rowIndex] = { ...newRows[rowIndex], ...updatedValue };
-    onProductChange(rowType, newRows);
-  };
+    onProductRowsChange(rowType, newRows);
+  }, [product, onProductRowsChange]);
 
-  const removeRow = (rowType: keyof ProductInputs, rowIndex: number) => {
+  const removeRow = useCallback((rowType: RowType, rowIndex: number) => {
     const currentRows = product[rowType] as any[];
-    onProductChange(rowType, currentRows.filter((_, index) => index !== rowIndex));
-  };
-
-  // Helper to get material details.
-  const getMaterialDetails = (materialId: string | null) => {
-      return materials.find(m => m.id === materialId) || null;
-  }
+    onProductRowsChange(rowType, currentRows.filter((_, index) => index !== rowIndex));
+  }, [product, onProductRowsChange]);
 
   const TabButton = ({ tab, label }: { tab: CostTab, label: string }) => (
     <button
@@ -143,141 +145,37 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ materials, produ
                 
                 {/* Tables Container */}
                 <div className="overflow-x-auto">
-                    {/* Material Cost Table */}
                     {activeTab === 'materials' && (
-                        <div>
-                            <table className="w-full border-collapse text-sm">
-                                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-                                    <tr>
-                                        <th className="p-2 border-b text-left font-semibold w-2/5">Material</th>
-                                        <th className="p-2 border-b text-left font-semibold">Qty.</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit Price</th>
-                                        <th className="p-2 border-b text-left font-semibold">Total Cost</th>
-                                        <th className="p-2 border-b w-10"><span className="sr-only">Remove</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {product.materialCostRows.map((row, index) => {
-                                        const material = getMaterialDetails(row.materialId);
-                                        const unitPrice = material?.unitPrice || 0;
-                                        const totalCost = row.qty * unitPrice;
-                                        return (
-                                            <tr key={row.id} className="border-b hover:bg-slate-50">
-                                                <td className="p-0 border-r"><select value={row.materialId ?? ''} onChange={(e) => updateRow('materialCostRows', index, { materialId: e.target.value })} className={`${tableInputClasses} w-full`} required><option value="">Select Material</option>{materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></td>
-                                                <td className="p-0 border-r"><input type="number" value={row.qty} onChange={(e) => updateRow('materialCostRows', index, { qty: Math.max(0, parseFloat(e.target.value) || 0) })} className={tableInputClasses} min="0" /></td>
-                                                <td className="p-2 border-r text-slate-600">{material?.unitOfMeasurement || '-'}</td>
-                                                <td className="p-2 border-r text-slate-600">{formatCurrency(unitPrice)}</td>
-                                                <td className="p-2 border-r font-semibold text-slate-800">{formatCurrency(totalCost)}</td>
-                                                <td className="p-2 text-center"><button onClick={() => removeRow('materialCostRows', index)} className="text-slate-400 hover:text-red-600" aria-label="Remove row">&times;</button></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                             <button onClick={() => addRow('materialCostRows')} className="mt-3 px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">+ Add Material</button>
-                        </div>
+                        <MaterialCostTable 
+                            rows={product.materialCostRows}
+                            updateRow={(index, value) => updateRow('materialCostRows', index, value)}
+                            removeRow={(index) => removeRow('materialCostRows', index)}
+                            addRow={() => addRow('materialCostRows')}
+                        />
                     )}
-                     {/* Packaging Cost Table */}
                      {activeTab === 'packaging' && (
-                        <div>
-                            <table className="w-full border-collapse text-sm">
-                                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-                                    <tr>
-                                        <th className="p-2 border-b text-left font-semibold w-2/5">Packaging</th>
-                                        <th className="p-2 border-b text-left font-semibold">Qty.</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit Price</th>
-                                        <th className="p-2 border-b text-left font-semibold">Total Cost</th>
-                                        <th className="p-2 border-b w-10"><span className="sr-only">Remove</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {product.packagingCostRows.map((row, index) => {
-                                        const material = getMaterialDetails(row.materialId);
-                                        const unitPrice = material?.unitPrice || 0;
-                                        const totalCost = row.qty * unitPrice;
-                                        return (
-                                            <tr key={row.id} className="border-b hover:bg-slate-50">
-                                                <td className="p-0 border-r"><select value={row.materialId ?? ''} onChange={(e) => updateRow('packagingCostRows', index, { materialId: e.target.value })} className={`${tableInputClasses} w-full`} required><option value="">Select Packaging</option>{materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></td>
-                                                <td className="p-0 border-r"><input type="number" value={row.qty} onChange={(e) => updateRow('packagingCostRows', index, { qty: Math.max(0, parseFloat(e.target.value) || 0) })} className={tableInputClasses} min="0" /></td>
-                                                <td className="p-2 border-r text-slate-600">{material?.unitOfMeasurement || '-'}</td>
-                                                <td className="p-2 border-r text-slate-600">{formatCurrency(unitPrice)}</td>
-                                                <td className="p-2 border-r font-semibold text-slate-800">{formatCurrency(totalCost)}</td>
-                                                <td className="p-2 text-center"><button onClick={() => removeRow('packagingCostRows', index)} className="text-slate-400 hover:text-red-600" aria-label="Remove row">&times;</button></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                             <button onClick={() => addRow('packagingCostRows')} className="mt-3 px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">+ Add Packaging</button>
-                        </div>
+                        <PackagingCostTable
+                            rows={product.packagingCostRows}
+                            updateRow={(index, value) => updateRow('packagingCostRows', index, value)}
+                            removeRow={(index) => removeRow('packagingCostRows', index)}
+                            addRow={() => addRow('packagingCostRows')}
+                        />
                     )}
-                    {/* Labor Cost Table */}
                     {activeTab === 'labor' && (
-                        <div>
-                            <table className="w-full border-collapse text-sm">
-                                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-                                    <tr>
-                                        <th className="p-2 border-b text-left font-semibold w-2/5">Task</th>
-                                        <th className="p-2 border-b text-left font-semibold">Hours</th>
-                                        <th className="p-2 border-b text-left font-semibold">Rate</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit Price</th>
-                                        <th className="p-2 border-b text-left font-semibold">Total Cost</th>
-                                        <th className="p-2 border-b w-10"><span className="sr-only">Remove</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {product.laborCostRows.map((row, index) => {
-                                        const totalCost = row.hours * product.hourlyLaborRate;
-                                        return (
-                                            <tr key={row.id} className="border-b hover:bg-slate-50">
-                                                <td className="p-0 border-r"><input type="text" value={row.taskName} onChange={(e) => updateRow('laborCostRows', index, { taskName: e.target.value })} placeholder="e.g., Production" className={tableInputClasses} required /></td>
-                                                <td className="p-0 border-r"><input type="number" value={row.hours} onChange={(e) => updateRow('laborCostRows', index, { hours: Math.max(0, parseFloat(e.target.value) || 0) })} className={tableInputClasses} min="0" /></td>
-                                                <td className="p-2 border-r text-slate-600">hours</td>
-                                                <td className="p-2 border-r text-slate-600">{formatCurrency(product.hourlyLaborRate)}</td>
-                                                <td className="p-2 border-r font-semibold text-slate-800">{formatCurrency(totalCost)}</td>
-                                                <td className="p-2 text-center"><button onClick={() => removeRow('laborCostRows', index)} className="text-slate-400 hover:text-red-600" aria-label="Remove row">&times;</button></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            <button onClick={() => addRow('laborCostRows')} className="mt-3 px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">+ Add Labor Task</button>
-                        </div>
+                       <LaborCostTable
+                            rows={product.laborCostRows}
+                            updateRow={(index, value) => updateRow('laborCostRows', index, value)}
+                            removeRow={(index) => removeRow('laborCostRows', index)}
+                            addRow={() => addRow('laborCostRows')}
+                        />
                     )}
-                    {/* Other Fees Table */}
                     {activeTab === 'other' && (
-                        <div>
-                            <table className="w-full border-collapse text-sm">
-                                <thead className="bg-slate-50 text-xs text-slate-600 uppercase">
-                                    <tr>
-                                        <th className="p-2 border-b text-left font-semibold w-2/5">Fee Name</th>
-                                        <th className="p-2 border-b text-left font-semibold">Qty</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit</th>
-                                        <th className="p-2 border-b text-left font-semibold">Unit Price</th>
-                                        <th className="p-2 border-b text-left font-semibold">Total Cost</th>
-                                        <th className="p-2 border-b w-10"><span className="sr-only">Remove</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {product.otherFeeRows.map((row, index) => {
-                                        const totalCost = row.qty * row.unitPrice;
-                                        return (
-                                            <tr key={row.id} className="border-b hover:bg-slate-50">
-                                                <td className="p-0 border-r"><input type="text" value={row.feeName} onChange={(e) => updateRow('otherFeeRows', index, { feeName: e.target.value })} placeholder="e.g., Shipping" className={tableInputClasses} required /></td>
-                                                <td className="p-0 border-r"><input type="number" value={row.qty} onChange={(e) => updateRow('otherFeeRows', index, { qty: Math.max(0, parseFloat(e.target.value) || 0) })} className={tableInputClasses} min="0" /></td>
-                                                <td className="p-0 border-r"><input type="text" value={row.unit} onChange={(e) => updateRow('otherFeeRows', index, { unit: e.target.value })} placeholder="e.g., each" className={tableInputClasses} /></td>
-                                                <td className="p-0 border-r"><input type="number" value={row.unitPrice} onChange={(e) => updateRow('otherFeeRows', index, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })} className={tableInputClasses} min="0" /></td>
-                                                <td className="p-2 border-r font-semibold text-slate-800">{formatCurrency(totalCost)}</td>
-                                                <td className="p-2 text-center"><button onClick={() => removeRow('otherFeeRows', index)} className="text-slate-400 hover:text-red-600" aria-label="Remove row">&times;</button></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            <button onClick={() => addRow('otherFeeRows')} className="mt-3 px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">+ Add Fee</button>
-                        </div>
+                        <OtherFeeTable
+                            rows={product.otherFeeRows}
+                            updateRow={(index, value) => updateRow('otherFeeRows', index, value)}
+                            removeRow={(index) => removeRow('otherFeeRows', index)}
+                            addRow={() => addRow('otherFeeRows')}
+                        />
                     )}
                 </div>
 
@@ -301,11 +199,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ materials, produ
                  <p className="text-sm text-slate-600">Choose how you want to calculate your final price.</p>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 p-3 bg-slate-50 rounded-lg">
                     <label className="flex items-center cursor-pointer">
-                        <input type="radio" name="calculationMode" value="margin" checked={product.calculationMode === 'margin'} onChange={() => onProductChange('calculationMode', 'margin')} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                        <input type="radio" name="calculationMode" value="margin" checked={product.calculationMode === 'margin'} onChange={() => onProductModeChange('calculationMode', 'margin')} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300" />
                         <span className="ml-2 text-sm font-medium text-slate-700">Set a Target Margin</span>
                     </label>
                     <label className="flex items-center cursor-pointer">
-                         <input type="radio" name="calculationMode" value="price" checked={product.calculationMode === 'price'} onChange={() => onProductChange('calculationMode', 'price')} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                         <input type="radio" name="calculationMode" value="price" checked={product.calculationMode === 'price'} onChange={() => onProductModeChange('calculationMode', 'price')} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300" />
                         <span className="ml-2 text-sm font-medium text-slate-700">Set a Target Price</span>
                     </label>
                 </div>

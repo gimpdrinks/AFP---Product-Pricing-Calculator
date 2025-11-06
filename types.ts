@@ -42,6 +42,9 @@ export interface OtherFeeRow {
   unitPrice: number;
 }
 
+// Define the type for the new material data received from the form.
+export type NewMaterialData = Omit<Material, 'id' | 'unitPrice'>;
+
 
 // Represents all the user-configurable inputs for pricing a single product,
 // matching the new spreadsheet-style UI.
@@ -80,14 +83,8 @@ export interface CalculatedPricing {
   profit: number;           // Profit on the discounted price
 }
 
-// FIX: Added missing types for legacy components to resolve compilation errors.
-// NOTE: The following types are for legacy components (CalculatorForm, ResultsDisplay)
-// that are not currently used in the application but are kept for reference.
-
-/**
- * Represents the inputs for the older, simpler calculator form.
- * @deprecated
- */
+// FIX: Add missing legacy type `CalculatorInputs` to resolve compilation errors.
+// This type is used by the old, unused CalculatorForm component.
 export interface CalculatorInputs {
   materialCost: number;
   laborCost: number;
@@ -98,10 +95,8 @@ export interface CalculatorInputs {
   wholesaleDiscount: number;
 }
 
-/**
- * Represents the calculated results from the older, simpler calculator.
- * @deprecated
- */
+// FIX: Add missing legacy type `CalculatedResults` to resolve compilation errors.
+// This type is used by the old, unused ResultsDisplay component.
 export interface CalculatedResults {
   retailPrice: number;
   wholesalePrice: number;

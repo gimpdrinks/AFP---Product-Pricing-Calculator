@@ -4,16 +4,10 @@
  */
 import React, { useState } from 'react';
 import { getPricingAdvice } from '../services/geminiService';
-// FIX: Import the correct, modern types
-import type { ProductInputs, CalculatedPricing } from '../types';
+import { useAppContext } from '../context/AppContext';
 
-// FIX: Update the props interface
-interface PricingAdvisorProps {
-  inputs: ProductInputs;
-  results: CalculatedPricing;
-}
-
-export const PricingAdvisor: React.FC<PricingAdvisorProps> = ({ inputs, results }) => {
+export const PricingAdvisor: React.FC = () => {
+  const { productInputs: inputs, calculatedPricing: results } = useAppContext();
   // State to manage the API call status and results.
   const [isLoading, setIsLoading] = useState(false);
   const [advice, setAdvice] = useState('');

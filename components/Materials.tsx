@@ -5,17 +5,9 @@
  * materials, allowing for their deletion.
  */
 import React, { useState } from 'react';
-import type { Material } from '../types';
+import type { NewMaterialData } from '../types';
 import { formatCurrency } from '../utils/currency';
-
-// The data structure for a new material, before it's processed and given an ID.
-type NewMaterialData = Omit<Material, 'id' | 'unitPrice'>;
-
-interface MaterialsProps {
-  materials: Material[];
-  onAdd: (data: NewMaterialData) => boolean; // Callback to add a material
-  onDelete: (id: string) => void;                // Callback to delete a material
-}
+import { useAppContext } from '../context/AppContext';
 
 // A simple, reusable input component for the "Add Material" form.
 const FormInput = ({ label, id, ...props }: { label: string, id: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -30,7 +22,8 @@ const FormInput = ({ label, id, ...props }: { label: string, id: string } & Reac
 );
 
 
-export const Materials: React.FC<MaterialsProps> = ({ materials, onAdd, onDelete }) => {
+export const Materials: React.FC = () => {
+  const { materials, onAddMaterial, onDeleteMaterial } = useAppContext();
   // Component-level state for the "Add New Material" form inputs and error messages.
   const [formState, setFormState] = useState({
       sku: '',
@@ -74,7 +67,7 @@ export const Materials: React.FC<MaterialsProps> = ({ materials, onAdd, onDelete
     }
 
     // Call the parent component's add handler with the structured form data.
-    const success = onAdd({
+    const success = onAddMaterial({
         ...formState,
         totalCost: totalCostValue,
         qty: qtyValue,
@@ -138,7 +131,7 @@ export const Materials: React.FC<MaterialsProps> = ({ materials, onAdd, onDelete
                           </td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{formatCurrency(material.unitPrice)}</td>
                           <td className="px-4 py-3 text-right">
-                              <button onClick={() => onDelete(material.id)} className="text-slate-400 hover:text-red-600" aria-label={`Delete ${material.name}`}>
+                              <button onClick={() => onDeleteMaterial(material.id)} className="text-slate-400 hover:text-red-600" aria-label={`Delete ${material.name}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                               </button>
                           </td>
